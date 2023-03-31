@@ -1,0 +1,2 @@
+# CKA
+CKA pracice scripts
