@@ -87,7 +87,7 @@ wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz
 tar -C /usr/local -xzf go1.13.linux-amd64.tar.gz
 
 git clone https://github.com/Mirantis/cri-dockerd.git
-cd cri-dockerd/src && go get && go build -o ../bin/cri-dockerd
+cd cri-dockerd/ && mkdir bin && go build -o ../bin/cri-dockerd
 
 cd ..
 
