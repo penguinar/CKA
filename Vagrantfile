@@ -13,10 +13,10 @@ Vagrant.configure(2) do |config|
       v.memory = 4096
       v.cpus = 2
     end
-    control.vm.provision "shell", path: "reqs.sh"
-    control.vm.provision "shell", path: "install_dockerd.sh"
-    control.vm.provision "shell", path: "install_k8s_centos7.sh"
-    control.vm.provision "shell", inline: "swapoff -a"
+    control.vm.provision "shell", path: "sudo reqs.sh"
+    control.vm.provision "shell", path: "sudo install_dockerd.sh"
+    control.vm.provision "shell", path: "sudo install_k8s_centos7.sh"
+    control.vm.provision "shell", inline: "sudo swapoff -a"
     control.vm.provision "shell", inline: "echo 192.168.56.111 worker1.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "echo 192.168.56.112 worker2.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "echo 192.168.56.113 worker3.example.com >> /etc/hosts"
