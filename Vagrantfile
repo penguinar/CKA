@@ -12,9 +12,15 @@ Vagrant.configure("2") do |config|
 
     control.vm.network "forwarded_port", guest: 6443, host: 8443
 
+<<<<<<< Updated upstream
     control.vm.provision "shell", path: "provision/common.sh"
     control.vm.provision "shell", path: "provision/cp.sh"
     control.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: false
+=======
+    control.vm.provision "shell", path: "provision/common.sh", privileged: true
+    control.vm.provision "shell", path: "provision/cp.sh", privileged: true
+    control.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: true
+>>>>>>> Stashed changes
   end
 
   NodeCount = 3
@@ -38,3 +44,4 @@ Vagrant.configure("2") do |config|
     end
   end
 end
+

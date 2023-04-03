@@ -1,2 +1,7 @@
-# CKA
-CKA pracice scripts
+Vagrant environment lab config
+
+
+## Software needed
+sudo apt install virtualbox vagrant
+
+
