@@ -83,8 +83,8 @@ echo 'export PATH=$PATH:/usr/local/go/bin' >> /vagrant/.bash_profile
 
 source /root/.bash_profile
 
-wget https://dl.google.com/go/go1.16.linux-amd64.tar.gz
-tar -C /usr/local -xzf go1.16.linux-amd64.tar.gz
+wget https://dl.google.com/go/go1.20.2.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.20.2.linux-amd64.tar.gz
 
 git clone https://github.com/Mirantis/cri-dockerd.git
 cd cri-dockerd/ && mkdir bin && go build -o ../bin/cri-dockerd
