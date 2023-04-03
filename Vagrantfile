@@ -14,16 +14,16 @@ Vagrant.configure(2) do |config|
       v.cpus = 2
     end
     control.vm.provision "shell", path: "prereqs.sh"
-    control.vm.provision "shell", path: "https://raw.githubusercontent.com/penguinar/CKA/main/install_dock>
-    control.vm.provision "shell", path: "https://raw.githubusercontent.com/penguinar/CKA/main/install_k8s_>
+    control.vm.provision "shell", path: "install_dockerd.sh"
+    control.vm.provision "shell", path: "install_k8s_centos7.sh"
     control.vm.provision "shell", inline: "swapoff -a"
     control.vm.provision "shell", inline: "echo 192.168.56.111 worker1.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "echo 192.168.56.112 worker2.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "echo 192.168.56.113 worker3.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "echo 192.168.56.110 control.example.com >> /etc/hosts"
     control.vm.provision "shell", inline: "kubeadm init --apiserver-advertise-address 192.168.56.110"
-    control.vm.provision "shell", inline: "mkdir /home/vagrant/.kube && cp /etc/kubernetes/admin.conf /hom>
-#    control.vm.provision "shell", inline: "sudo -u vagrant \"sh -c \'kubectl apply -f \"https://cloud.wea>
+    control.vm.provision "shell", inline: "mkdir /home/vagrant/.kube && cp /etc/kubernetes/admin.conf /home/vagrant/.kube/config && chown -R vagrant:vagrant /home/vagrant/.kube"
+#    control.vm.provision "shell", inline: "sudo -u vagrant \"sh -c \'kubectl apply -f \"https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')&env.WEAVE_MTU=1337\" \'\""
   end
 
   NodeCount = 3
@@ -44,8 +44,8 @@ Vagrant.configure(2) do |config|
       workernode.vm.provision "shell", inline: "echo 192.168.56.112 worker2.example.com >> /etc/hosts"
       workernode.vm.provision "shell", inline: "echo 192.168.56.113 worker3.example.com >> /etc/hosts"
       workernode.vm.provision "shell", inline: "echo 192.168.56.110 control.example.com >> /etc/hosts"
-      workernode.vm.provision "shell", path: "https://raw.githubusercontent.com/gwynforthewyn/cka/master/s>
-      workernode.vm.provision "shell", path: "https://raw.githubusercontent.com/gwynforthewyn/cka/master/s>
+      workernode.vm.provision "shell", path: "https://raw.githubusercontent.com/gwynforthewyn/cka/master/setup-container.sh"
+      workernode.vm.provision "shell", path: "https://raw.githubusercontent.com/gwynforthewyn/cka/master/setup-kubetools.sh"
       workernode.vm.provision "shell", inline: "swapoff -a"
     end
   end
