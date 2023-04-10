@@ -12,7 +12,11 @@ cp /home/vagrant/kubernetes-archive-keyring.gpg /usr/share/keyrings/
 
 echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
 
-apt-get update
+until apt-get update; do
+  echo "Retrying apt-get update..."
+  sleep 1
+done
+
 apt-get upgrade -y
 apt-get install -y curl apt-transport-https vim git wget gnupg2 \
     software-properties-common apt-transport-https ca-certificates uidmap bash-completion
