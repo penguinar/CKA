@@ -37,3 +37,6 @@ apt-mark hold kubelet kubeadm kubectl
 kubectl completion bash | tee /etc/bash_completion.d/kubectl > /dev/null
 
 echo "10.0.0.10 controller-0" | tee --append /etc/hosts
+echo "10.0.0.11 worker1" | tee --append /etc/hosts
+echo "10.0.0.12 worker2" | tee --append /etc/hosts
+echo "10.0.0.13 worker3" | tee --append /etc/hosts
