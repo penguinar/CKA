@@ -3,7 +3,7 @@ Vagrant environment lab config files for Ubuntu 22.04
 ## Software needed
 sudo apt install virtualbox vagrant
 
-## Thanks to 
+## Special thanks and credits to: 
 * https://github.com/matteosilv/cka-lab
-* https://github.com/jeromeza
-* https://github.com/sandervanvugt
+* https://github.com/jeromeza/k8s_cka_vagrant
+* https://github.com/sandervanvugt/cka
