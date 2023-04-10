@@ -3,7 +3,13 @@
 set -e
 
 # add kubernetes apt gpg key
-curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+# Define the URL and file path
+#FILEPATH="/usr/share/keyrings/kubernetes-archive-keyring.gpg"
+
+echo "cp desde common"
+
+cp /home/vagrant/kubernetes-archive-keyring.gpg /usr/share/keyrings/
+
 echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
 
 apt-get update
