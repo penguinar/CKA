@@ -40,7 +40,11 @@ Vagrant.configure("2") do |config|
         vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
         vb.customize ["modifyvm", :id, "--vram", "64"]
       end
+<<<<<<< HEAD
       worker.vm.provision "file", source: "provision/kubernetes-archive-keyring.gpg", destination: "/home/vagrant"
+=======
+      worker.vm.provision "file", source: "provision/kubernetes-archive-keyring.gpg", destination: "/home/vagrant/"
+>>>>>>> 11ac753 (Fixed image and apt gpg keys missing)
       worker.vm.provision "shell", path: "provision/common.sh"
       worker.vm.provision "shell", path: "provision/worker.sh"
       worker.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: false
