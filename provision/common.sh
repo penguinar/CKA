@@ -20,7 +20,7 @@ done
 apt-get upgrade -y
 apt-get install -y curl apt-transport-https vim git wget gnupg2 \
     software-properties-common apt-transport-https ca-certificates uidmap bash-completion
-
+export KUBECONFIG=/etc/kubernetes/admin.conf
 swapoff -a
 modprobe overlay
 modprobe br_netfilter
