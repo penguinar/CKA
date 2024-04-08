@@ -6,12 +6,14 @@ set -e
 # Define the URL and file path
 #FILEPATH="/usr/share/keyrings/kubernetes-archive-keyring.gpg"
 
-echo "cp desde common"
+echo "Installing cURL & k8s gpg keys"
+apt-get update
+apt-get install -y curl gpg sudo
 
-cp /home/vagrant/kubernetes-archive-keyring.gpg /usr/share/keyrings/
+mkdir -p /etc/apt/keyrings/
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
-
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 until apt-get update; do
   echo "Retrying apt-get update..."
   sleep 1
@@ -31,10 +33,32 @@ net.ipv4.ip_forward = 1
 EOF
 sysctl --system
 
-apt-get install -y containerd kubeadm=1.24.1-00 kubelet=1.24.1-00 kubectl=1.24.1-00
+apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/debian.gpg
+add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+apt update
+apt-get install -y kubeadm='1.28.*' kubelet kubectl containerd.io
 apt-mark hold kubelet kubeadm kubectl
 
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml
+# Define the file path
+CONFIG_FILE_CONTD="/etc/containerd/config.toml"
+
+# Backup the original config file
+cp $CONFIG_FILE_CONTD "$CONFIG_FILE.bak"
+
+# Use awk and sed to modify the 'SystemdCgroup = false' to 'SystemdCgroup = true' under the specified section
+awk '/\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options\]/,/\[/{if($0 ~ /SystemdCgroup = false/) sub(/false/, "true")} 1' $CONFIG_FILE_CONTD > tmpfile && mv tmpfile $CONFIG_FILE_CONTD
+
+echo "Modification completed. Please verify the configuration and restart containerd."
+systemctl restart containerd
+systemctl enable containerd
+
+
 kubectl completion bash | tee /etc/bash_completion.d/kubectl > /dev/null
+
+systemctl enable --now kubelet
 
 echo "10.0.0.10 controller-0" | tee --append /etc/hosts
 echo "10.0.0.11 worker1" | tee --append /etc/hosts

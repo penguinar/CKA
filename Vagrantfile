@@ -1,12 +1,12 @@
 Vagrant.configure("2") do |config|
   config.vm.define "controller-0" do |control|
-    control.vm.box = "penguinar/ubuntu-updated"
+    control.vm.box = "debian/bookworm64"
     control.vm.hostname = "controller-0"
     control.vm.network :private_network, ip: "10.0.0.10"
 
     config.vm.provider "virtualbox" do |vb|
       vb.memory = "4096"
-      vb.cpus = "4"
+      vb.cpus = "12"
 # Set the paravirtualization interface to 'kvm' 
 # for better scheduling in multicore enviroments
       vb.customize ["modifyvm", :id, "--paravirtprovider", "kvm"]
@@ -27,7 +27,7 @@ Vagrant.configure("2") do |config|
   # Kubernetes Worker Nodes
   (1..NodeCount).each do |i|
     config.vm.define "worker#{i}" do |worker|
-      worker.vm.box = "penguinar/ubuntu-updated"
+      worker.vm.box = "debian/bookworm64"
       worker.vm.hostname = "worker#{i}"
       worker.vm.network :private_network, ip: "10.0.0.#{i + 10}"
 
