@@ -1,71 +1,57 @@
 #!/bin/bash
 
-swapoff -a
+# Setup for Control Plane (Master) servers on Debian
 
-# Exit on any error
-set -e
+set -euxo pipefail
 
-# Configuration
-NODE_IP="${1:-10.0.0.10}" # Default IP if not provided as an argument
-KUBERNETES_DIR="/vagrant/.kubernetes"
-KUBELET_CONFIG="/etc/default/kubelet"
-KUBEADM_CONFIG="/vagrant/config/kubeadm-config.yaml"
-CALICO_MANIFEST="https://raw.githubusercontent.com/projectcalico/calico/release-v3.27/manifests/calico.yaml"
-ADMIN_CONF="/etc/kubernetes/admin.conf"
+# Ensure environment variables are set
+CONTROL_IP='10.0.0.10'
+POD_CIDR='192.168.0.0/16'
+SERVICE_CIDR='10.96.0.0/12'
+CALICO_VERSION='3.27'
 
-# Clean up previous Kubernetes config directory
-echo "Removing existing Kubernetes config directory..."
-rm -rf "$KUBERNETES_DIR"
-mkdir -p "$KUBERNETES_DIR"
+NODENAME=$(hostname -s)
 
-# Configure Kubelet
-echo "Configuring Kubelet with node IP: $NODE_IP..."
-echo "KUBELET_EXTRA_ARGS=\"--node-ip=$NODE_IP\"" >> "$KUBELET_CONFIG"
+# Ensure all required images are pre-pulled
+sudo kubeadm config images pull
 
-# Images pre pulls
-echo "Prepull of config images"
-kubeadm config images pull --config="$KUBEADM_CONFIG"
+echo "Preflight Check Passed: Downloaded All Required Images"
 
-# Initialize the Kubernetes cluster with a custom timeout
-echo "Starting preflight checks..."
-kubeadm init phase preflight --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+# Initialize the master node
+sudo kubeadm init --apiserver-advertise-address=$CONTROL_IP --apiserver-cert-extra-sans=$CONTROL_IP --pod-network-cidr=$POD_CIDR --service-cidr=$SERVICE_CIDR --node-name "$NODENAME" --ignore-preflight-errors Swap
 
-echo "Initializing certificate authority..."
-kubeadm init phase certs all --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+# Set up kubectl config for the root user
+mkdir -p "$HOME"/.kube
+sudo cp -i /etc/kubernetes/admin.conf "$HOME"/.kube/config
+sudo chown "$(id -u)":"$(id -g)" "$HOME"/.kube/config
 
-echo "Generating kubeconfig files..."
-kubeadm init phase kubeconfig all --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+# Save Configs to shared location (considered here as /vagrant/configs)
+config_path="/vagrant/configs"
 
-echo "Setting up control plane..."
-kubeadm init phase control-plane all --config="/vagrant/config/kubeadm-config.yaml"
-sleep 25
+if [ -d $config_path ]; then
+  rm -f $config_path/*
+else
+  mkdir -p $config_path
+fi
 
-echo "Uploading kubeadm configuration to ConfigMap..."
-kubeadm init phase upload-config all --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+cp -i /etc/kubernetes/admin.conf $config_path/config
+touch $config_path/join.sh
+chmod +x $config_path/join.sh
 
-echo "Marking the control plane..."
-kubeadm init phase mark-control-plane --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+# Create and save the join command for worker nodes
+kubeadm token create --print-join-command > $config_path/join.sh
 
-echo "Installing Bootstrap Token and add-ons..."
-kubeadm init phase bootstrap-token --config="/vagrant/config/kubeadm-config.yaml"
-sleep 5
+# Install Calico Network Plugin
+curl https://raw.githubusercontent.com/projectcalico/calico/release-v${CALICO_VERSION}/manifests/calico.yaml -O
+kubectl apply -f calico.yaml
 
-echo "Applying addon RBAC rules..."
-kubeadm init phase addon all --config="/vagrant/config/kubeadm-config.yaml"
+# Set up kubectl config for the vagrant user
+sudo -i -u vagrant bash << EOF
+whoami
+mkdir -p /home/vagrant/.kube
+sudo cp -i $config_path/config /home/vagrant/.kube/
+sudo chown 1000:1000 /home/vagrant/.kube/config
+EOF
 
-
-# Create join command for worker nodes
-echo "Creating join command for worker nodes..."
-kubeadm token create --print-join-command > "$KUBERNETES_DIR/join.sh"
-
-# Corrected the path for copying admin.conf
-echo "Copying Kubernetes admin config to shared directory..."
-cp "$ADMIN_CONF" "$KUBERNETES_DIR/config"
-
-echo "Control plane deployment completed successfully."
-
+# Install Metrics Server
+kubectl apply -f https://raw.githubusercontent.com/techiescamp/kubeadm-scripts/main/manifests/metrics-server.yaml
