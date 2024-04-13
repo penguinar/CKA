@@ -1,66 +1,44 @@
-#!/bin/sh
+#!/bin/bash
 
-set -e
+set -o errexit -o pipefail -o nounset
 
-# add kubernetes apt gpg key
-# Define the URL and file path
-#FILEPATH="/usr/share/keyrings/kubernetes-archive-keyring.gpg"
-
-echo "Installing cURL & k8s gpg keys"
+echo "Installing required packages"
 apt-get update
-apt-get install -y curl gpg sudo
+apt-get install -y curl gpg sudo apt-transport-https ca-certificates software-properties-common bash-completion vim git wget gnupg2
 
-mkdir -p /etc/apt/keyrings/
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "Setting up Kubernetes and Docker repositories"
+sudo mkdir -p /etc/apt/keyrings /etc/apt/trusted.gpg.d
+sudo chown $(whoami) /etc/apt/keyrings /etc/apt/trusted.gpg.d
+sudo chmod u+w /etc/apt/keyrings /etc/apt/trusted.gpg.d
 
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-until apt-get update; do
-  echo "Retrying apt-get update..."
-  sleep 1
-done
 
-apt-get upgrade -y
-apt-get install -y curl apt-transport-https vim git wget gnupg2 \
-    software-properties-common apt-transport-https ca-certificates uidmap bash-completion
-export KUBECONFIG=/etc/kubernetes/admin.conf
-swapoff -a
-modprobe overlay
-modprobe br_netfilter
-cat << EOF | tee /etc/sysctl.d/kubernetes.conf
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-sysctl --system
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --batch --no-tty --dearmor -o /etc/apt/trusted.gpg.d/debian.gpg
+sudo add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 
-apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/debian.gpg
-add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
-apt update
-apt-get install -y kubeadm='1.28.*' kubelet kubectl containerd.io
+apt-get update
+apt-get install -y kubelet='1.28.*' kubeadm='1.28.*' kubectl docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 apt-mark hold kubelet kubeadm kubectl
 
-sudo mkdir -p /etc/containerd
+echo "Configuring containerd"
+mkdir -p /etc/containerd
 containerd config default | sudo tee /etc/containerd/config.toml
-# Define the file path
-CONFIG_FILE_CONTD="/etc/containerd/config.toml"
+sed -i '/disabled_plugins/s/^/#/' /etc/containerd/config.toml
+echo "SystemdCgroup = true" >> /etc/containerd/config.toml
 
-# Backup the original config file
-cp $CONFIG_FILE_CONTD "$CONFIG_FILE.bak"
-
-# Use awk and sed to modify the 'SystemdCgroup = false' to 'SystemdCgroup = true' under the specified section
-awk '/\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options\]/,/\[/{if($0 ~ /SystemdCgroup = false/) sub(/false/, "true")} 1' $CONFIG_FILE_CONTD > tmpfile && mv tmpfile $CONFIG_FILE_CONTD
-
-echo "Modification completed. Please verify the configuration and restart containerd."
+echo "Restarting containerd and enabling on boot"
 systemctl restart containerd
 systemctl enable containerd
 
+echo "System configuration for Kubernetes"
+swapoff -a
+sysctl --system
 
-kubectl completion bash | tee /etc/bash_completion.d/kubectl > /dev/null
-
+echo "Enabling kubelet service"
 systemctl enable --now kubelet
 
-echo "10.0.0.10 controller-0" | tee --append /etc/hosts
-echo "10.0.0.11 worker1" | tee --append /etc/hosts
-echo "10.0.0.12 worker2" | tee --append /etc/hosts
-echo "10.0.0.13 worker3" | tee --append /etc/hosts
+echo "Adding host entries"
+echo -e "10.0.0.10 controller-0\n10.0.0.11 worker1\n10.0.0.12 worker2\n10.0.0.13 worker3" | sudo tee --append /etc/hosts
+
+echo "Installation and configuration complete!"

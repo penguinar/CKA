@@ -17,9 +17,9 @@ Vagrant.configure("2") do |config|
 
     control.vm.network "forwarded_port", guest: 6443, host: 6443
     control.vm.provision "file", source: "provision/kubernetes-archive-keyring.gpg", destination: "/home/vagrant/"
-    control.vm.provision "shell", path: "provision/common.sh", privileged: true
-    control.vm.provision "shell", path: "provision/cp.sh", privileged: true
-    control.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: true
+    control.vm.provision "shell", path: "provision/common.sh", privileged: true, args: ["bash"]
+    control.vm.provision "shell", path: "provision/cp.sh", privileged: true, args: ["bash"]
+    control.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: true, args: ["bash"]
   end
 
   NodeCount = 3

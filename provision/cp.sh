@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 swapoff -a
 
@@ -27,16 +27,37 @@ echo "Prepull of config images"
 kubeadm config images pull --config="$KUBEADM_CONFIG"
 
 # Initialize the Kubernetes cluster with a custom timeout
-echo "Initializing Kubernetes cluster with extended timeout..."
-kubeadm init --config="$KUBEADM_CONFIG" --upload-certs --v=5
+echo "Starting preflight checks..."
+kubeadm init phase preflight --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
 
-# Export admin configuration
-echo "Exporting KUBECONFIG..."
-export KUBECONFIG="$ADMIN_CONF"
+echo "Initializing certificate authority..."
+kubeadm init phase certs all --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
 
-# Apply Calico network plugin
-echo "Applying Calico network plugin..."
-kubectl apply -f "$CALICO_MANIFEST"
+echo "Generating kubeconfig files..."
+kubeadm init phase kubeconfig all --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
+
+echo "Setting up control plane..."
+kubeadm init phase control-plane all --config="/vagrant/config/kubeadm-config.yaml"
+sleep 25
+
+echo "Uploading kubeadm configuration to ConfigMap..."
+kubeadm init phase upload-config all --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
+
+echo "Marking the control plane..."
+kubeadm init phase mark-control-plane --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
+
+echo "Installing Bootstrap Token and add-ons..."
+kubeadm init phase bootstrap-token --config="/vagrant/config/kubeadm-config.yaml"
+sleep 5
+
+echo "Applying addon RBAC rules..."
+kubeadm init phase addon all --config="/vagrant/config/kubeadm-config.yaml"
+
 
 # Create join command for worker nodes
 echo "Creating join command for worker nodes..."
