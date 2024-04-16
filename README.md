@@ -1,4 +1,4 @@
-#Vagrant environment lab config files for Debian 12 - Kubernetes 1.28
+# Vagrant environment lab config files for Debian 12 - Kubernetes 1.28
 
 ## Software needed
 
