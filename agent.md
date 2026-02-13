@@ -495,5 +495,3 @@ vagrant box add debian/trixie64
 ---
 
 **Last Updated:** 2026-02-13  
-**Maintainer:** Kubernetes Lab Team  
-**License:** Educational Use Only
