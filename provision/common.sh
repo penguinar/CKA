@@ -1,65 +1,68 @@
 #!/bin/bash
+# Common setup for all nodes
 
-set -o errexit -o pipefail -o nounset
+set -e
 
+K8S_VERSION="${1:-1.35.1}"
 
-cat <<EOF | tee /etc/modules-load.d/k8s.conf
+echo "=== Installing Kubernetes ${K8S_VERSION} ==="
+
+# Kernel modules
+cat <<EOF > /etc/modules-load.d/k8s.conf
 overlay
 br_netfilter
 EOF
 modprobe overlay
 modprobe br_netfilter
 
-cat << EOF | tee /etc/sysctl.d/kubernetes.conf
-net.bridge.bridge-nf-call-ip6tables = 1
+# Sysctl
+cat <<EOF > /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
 sysctl --system
 
-echo "Installing required packages"
+# Install packages
 apt-get update
-apt-get install -y curl gpg sudo apt-transport-https ca-certificates software-properties-common bash-completion vim git wget gnupg2
+apt-get install -y curl gnupg2 apt-transport-https ca-certificates
 
-echo "Setting up Kubernetes repository"
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+# Kubernetes repo
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION%.*}/deb/Release.key | \
+  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
+  https://pkgs.k8s.io/core:/stable:/v${K8S_VERSION%.*}/deb/ /" \
+  > /etc/apt/sources.list.d/kubernetes.list
+
+# CRI-O repo (trusted=yes to avoid GPG issues)
+echo "deb [trusted=yes] https://pkgs.k8s.io/addons:/cri-o:/prerelease:/main/deb/ /" \
+  > /etc/apt/sources.list.d/cri-o.list
+echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99allow-insecure
 
 apt-get update
-apt-get install -y kubelet='1.28.*' kubeadm='1.28.*' kubectl
+apt-get install -y kubelet="${K8S_VERSION}-1.1" kubeadm="${K8S_VERSION}-1.1" kubectl="${K8S_VERSION}-1.1" cri-o
 apt-mark hold kubelet kubeadm kubectl
 
-echo "System configuration for Kubernetes"
+# Configure CRI-O
+mkdir -p /etc/crio/crio.conf.d
+cat <<EOF > /etc/crio/crio.conf.d/99-kubernetes.conf
+[crio.runtime]
+cgroup_manager = "systemd"
+EOF
+
+systemctl enable --now crio
+systemctl enable kubelet
+
+# Disable swap
 swapoff -a
+sed -i '/ swap / s/^/#/' /etc/fstab
 
-## Install CRIO Runtime
-sudo apt-get update -y
-apt-get install -y software-properties-common curl apt-transport-https ca-certificates
+# Hosts
+cat <<EOF >> /etc/hosts
+10.0.0.10 controller-0
+10.0.0.11 worker1
+10.0.0.12 worker2
+10.0.0.13 worker3
+EOF
 
-curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/prerelease:/main/deb/Release.key |
-    gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/prerelease:/main/deb/ /" |
-    tee /etc/apt/sources.list.d/cri-o.list
-
-sudo apt-get update -y
-sudo apt-get install -y cri-o
-
-sudo systemctl daemon-reload
-sudo systemctl enable crio --now
-sudo systemctl start crio.service
-
-echo "CRI runtime installed successfully"
-
-echo "Restarting crio and enabling on boot"
-sudo systemctl restart crio
-sudo systemctl enable crio
-
-echo "Enabling kubelet service"
-sudo systemctl enable --now kubelet
-
-echo "Adding host entries"
-echo -e "10.0.0.10 controller-0\n10.0.0.11 worker1\n10.0.0.12 worker2\n10.0.0.13 worker3" | sudo tee --append /etc/hosts
-
-sudo sysctl --system
-echo "Installation and configuration complete!"
+echo "=== Common setup complete ==="

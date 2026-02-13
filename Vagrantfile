@@ -1,48 +1,47 @@
-Vagrant.configure("2") do |config|
-  config.vm.define "controller-0" do |control|
-    control.vm.box = "debian/bookworm64"
-    control.vm.hostname = "controller-0"
-    control.vm.network :private_network, ip: "10.0.0.10"
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
 
-    config.vm.provider "virtualbox" do |vb|
-      vb.memory = "4096"
-      vb.cpus = "12"
-# Set the paravirtualization interface to 'kvm' 
-# for better scheduling in multicore enviroments
-      vb.customize ["modifyvm", :id, "--paravirtprovider", "kvm"]
-#Set the graphics controller to 'vmsvga' and allocate 64 MB of video memory
-      vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
-      vb.customize ["modifyvm", :id, "--vram", "64"]
+Vagrant.configure("2") do |config|
+  # Use pre-built box with images (set K8S_BOX env var to use custom box)
+  # To create custom box: ./create-box.sh
+  # To use custom box: K8S_BOX=k8s-debian vagrant up
+  config.vm.box = ENV.fetch('K8S_BOX', 'debian/trixie64')
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  K8S_VERSION = "1.35.1"
+  POD_CIDR = "192.168.0.0/16"
+  SERVICE_CIDR = "10.96.0.0/12"
+
+  # Controller
+  config.vm.define "controller-0" do |node|
+    node.vm.hostname = "controller-0"
+    node.vm.network :private_network, ip: "10.0.0.10"
+    node.vm.network "forwarded_port", guest: 6443, host: 6443
+
+    node.vm.provider "libvirt" do |v|
+      v.memory = 4096
+      v.cpus = 4
+      v.driver = "kvm"
     end
 
-    control.vm.network "forwarded_port", guest: 6443, host: 6443
-    control.vm.provision "shell", path: "provision/common.sh", privileged: true, args: ["bash"]
-    control.vm.provision "shell", path: "provision/cp.sh", privileged: true, args: ["bash"]
-    control.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: true, args: ["bash"]
+    node.vm.provision "shell", path: "provision/common.sh", args: [K8S_VERSION]
+    node.vm.provision "shell", path: "provision/controller.sh", args: [K8S_VERSION, POD_CIDR, SERVICE_CIDR]
   end
 
-  NodeCount = 3
+  # Workers
+  (1..3).each do |i|
+    config.vm.define "worker#{i}" do |node|
+      node.vm.hostname = "worker#{i}"
+      node.vm.network :private_network, ip: "10.0.0.#{10 + i}"
 
-  # Kubernetes Worker Nodes
-  (1..NodeCount).each do |i|
-    config.vm.define "worker#{i}" do |worker|
-      worker.vm.box = "debian/bookworm64"
-      worker.vm.hostname = "worker#{i}"
-      worker.vm.network :private_network, ip: "10.0.0.#{i + 10}"
-
-      worker.vm.provider "virtualbox" do |vb|
-        vb.memory = "4096"
-        vb.cpus = "2"
-#  Set the paravirtualization interface to 'kvm'
-        vb.customize ["modifyvm", :id, "--paravirtprovider", "kvm"]
-#  Set the graphics controller to 'vmsvga' and allocate 64 MB of video memory
-        vb.customize ["modifyvm", :id, "--graphicscontroller", "vmsvga"]
-        vb.customize ["modifyvm", :id, "--vram", "64"]
+      node.vm.provider "libvirt" do |v|
+        v.memory = 4096
+        v.cpus = 2
+        v.driver = "kvm"
       end
-      worker.vm.provision "shell", path: "provision/common.sh"
-      worker.vm.provision "shell", path: "provision/worker.sh"
-      worker.vm.provision "shell", path: "provision/kubeconfig.sh", privileged: false
+
+      node.vm.provision "shell", path: "provision/common.sh", args: [K8S_VERSION]
+      node.vm.provision "shell", path: "provision/worker.sh"
     end
   end
 end
-
